@@ -2,7 +2,7 @@ terraform {
   backend "s3" {
     bucket = "devsecops-tf-state"
     key    = "terraform.tfstate"
-    region = "us-east-1"
+    region = "ap-south-1"
   }
 }
 
@@ -101,4 +101,9 @@ resource "aws_instance" "devsecops_ec2" {
   tags = {
     Name = "DevSecOps-EC2"
   }
+}
+
+resource "aws_eip" "devsecops_eip" {
+  instance = aws_instance.devsecops_ec2.id
+  domain   = "vpc"
 }
