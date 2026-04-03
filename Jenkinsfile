@@ -7,6 +7,8 @@ pipeline {
 
     environment {
         IMAGE_NAME = "nipamrohit121/devops-portfolio"
+        AWS_ACCESS_KEY_ID     = credentials('aws-creds')
+        AWS_SECRET_ACCESS_KEY = credentials('aws-creds')
     }
 
     stages {
@@ -92,25 +94,52 @@ pipeline {
         //     }
         // }
 
-        stage('Check EC2 Exists') {
-            steps {
-                script {
-                    def ip = sh(
-                        script: """
-                            cd terraform
-                            rm -rf .terraform .terraform.lock.hcl
-                            terraform init -reconfigure -input=false > /dev/null 2>&1
-                            terraform output -raw public_ip 2>/dev/null || echo ""
-                        """,
-                        returnStdout: true
-                    ).trim()
+        // stage('Check EC2 Exists') {
+        //     steps {
+        //         script {
+        //             def ip = sh(
+        //                 script: """
+        //                     cd terraform
+        //                     rm -rf .terraform .terraform.lock.hcl
+        //                     terraform init -reconfigure -input=false > /dev/null 2>&1
+        //                     terraform output -raw public_ip 2>/dev/null || echo ""
+        //                 """,
+        //                 returnStdout: true
+        //             ).trim()
 
-                    env.EC2_EXISTS = (ip ==~ /\d+\.\d+\.\d+\.\d+/) ? "true" : "false"
-                    env.EC2_IP = ip
-                    echo "EC2_EXISTS=${env.EC2_EXISTS}, EC2_IP=${env.EC2_IP}"
-                }
+        //             env.EC2_EXISTS = (ip ==~ /\d+\.\d+\.\d+\.\d+/) ? "true" : "false"
+        //             env.EC2_IP = ip
+        //             echo "EC2_EXISTS=${env.EC2_EXISTS}, EC2_IP=${env.EC2_IP}"
+        //         }
+        //     }
+        // }
+
+        stage('Check EC2 Exists') {
+    steps {
+        withCredentials([[
+            $class: 'AmazonWebServicesCredentialsBinding',
+            credentialsId: 'aws-creds',
+            accessKeyVariable: 'AWS_ACCESS_KEY_ID',
+            secretKeyVariable: 'AWS_SECRET_ACCESS_KEY'
+        ]]) {
+            script {
+                def ip = sh(
+                    script: """
+                        cd terraform
+                        rm -rf .terraform .terraform.lock.hcl terraform.tfstate terraform.tfstate.backup
+                        terraform init -reconfigure -input=false > /dev/null 2>&1
+                        terraform output -raw public_ip 2>/dev/null || echo ""
+                    """,
+                    returnStdout: true
+                ).trim()
+
+                env.EC2_EXISTS = (ip ==~ /\d+\.\d+\.\d+\.\d+/) ? "true" : "false"
+                env.EC2_IP = ip
+                echo "EC2_EXISTS=${env.EC2_EXISTS}, EC2_IP=${env.EC2_IP}"
             }
         }
+    }
+}
 
         stage('Terraform Init & Apply') {
             when {
@@ -133,21 +162,27 @@ pipeline {
                 }
             }
         }
-
-        stage('Get EC2 IP') {
-            when {
-                expression { env.EC2_EXISTS != "true" }
-            }
-            steps {
-                script {
-                    env.EC2_IP = sh(
-                        script: "cd terraform && terraform output -raw public_ip",
-                        returnStdout: true
-                    ).trim()
-                    echo "Newly created EC2_IP=${env.EC2_IP}"
-                }
+stage('Get EC2 IP') {
+    when {
+        expression { env.EC2_EXISTS != "true" }
+    }
+    steps {
+        withCredentials([[
+            $class: 'AmazonWebServicesCredentialsBinding',
+            credentialsId: 'aws-creds',
+            accessKeyVariable: 'AWS_ACCESS_KEY_ID',
+            secretKeyVariable: 'AWS_SECRET_ACCESS_KEY'
+        ]]) {
+            script {
+                env.EC2_IP = sh(
+                    script: "cd terraform && terraform output -raw public_ip",
+                    returnStdout: true
+                ).trim()
+                echo "Newly created EC2_IP=${env.EC2_IP}"
             }
         }
+    }
+}
 
         stage('Approve Deployment') {
             steps {
