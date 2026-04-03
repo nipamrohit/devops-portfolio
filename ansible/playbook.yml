@@ -3,7 +3,6 @@
   become: true
 
   vars:
-    image_name: nipamrohit121/devops-portfolio:latest
     container_name: nextjs-app
 
   tasks:
@@ -19,6 +18,10 @@
           - python3-pip
         state: present
 
+    - name: Install Docker Python SDK
+      pip:
+        name: docker
+
     - name: Start Docker
       service:
         name: docker
@@ -31,11 +34,12 @@
         groups: docker
         append: yes
 
-    - name: Pull Docker image
+    - name: Deploy container
       docker_container:
         name: "{{ container_name }}"
         image: "{{ image_name }}"
         state: started
         restart_policy: always
+        recreate: yes
         ports:
           - "80:3000"

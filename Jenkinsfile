@@ -15,7 +15,7 @@ pipeline {
             steps {
                 script {
                     env.TAG = input(
-                        message: 'Enter Docker Image Version (e.g., v1, v2):',
+                        message: 'Enter Docker Image Version (v1, v2)',
                         parameters: [string(name: 'VERSION', defaultValue: 'v1')]
                     )
                 }
@@ -34,11 +34,39 @@ pipeline {
             }
         }
 
-        stage('Trivy Scan') {
+        // 🔥 TRIVY BACK (FORMATTED)
+        stage('Trivy Scan + Report') {
             steps {
                 sh '''
-                trivy image --severity HIGH,CRITICAL --ignore-unfixed $IMAGE_NAME:$TAG || true
+                mkdir -p templates
+                curl -s -o templates/custom.tpl https://raw.githubusercontent.com/aquasecurity/trivy/main/contrib/html.tpl
+
+                trivy image \
+                --severity HIGH,CRITICAL \
+                --ignore-unfixed \
+                --format template \
+                --template "@templates/custom.tpl" \
+                -o trivy-report.html \
+                $IMAGE_NAME:$TAG
                 '''
+            }
+        }
+
+        stage('Publish Trivy Report') {
+            steps {
+                publishHTML([
+                    reportName: 'Trivy Security Report',
+                    reportDir: '.',
+                    reportFiles: 'trivy-report.html',
+                    keepAll: true,
+                    alwaysLinkToLastBuild: true
+                ])
+            }
+        }
+
+        stage('Approve Push') {
+            steps {
+                input message: "Check Trivy Report → Push ${TAG}?"
             }
         }
 
@@ -49,9 +77,7 @@ pipeline {
                     usernameVariable: 'DOCKER_USER',
                     passwordVariable: 'DOCKER_PASS'
                 )]) {
-                    sh '''
-                    echo "$DOCKER_PASS" | docker login -u "$DOCKER_USER" --password-stdin
-                    '''
+                    sh 'echo "$DOCKER_PASS" | docker login -u "$DOCKER_USER" --password-stdin'
                 }
             }
         }
@@ -66,8 +92,21 @@ pipeline {
             }
         }
 
-        // ------------------ TERRAFORM ------------------
+        // 🔥 AWS FIX
+        stage('AWS Credentials Setup') {
+            steps {
+                withCredentials([[
+                    $class: 'AmazonWebServicesCredentialsBinding',
+                    credentialsId: 'aws-creds',
+                    accessKeyVariable: 'AWS_ACCESS_KEY_ID',
+                    secretKeyVariable: 'AWS_SECRET_ACCESS_KEY'
+                ]]) {
+                    sh 'echo "AWS creds loaded"'
+                }
+            }
+        }
 
+        // 🔥 TERRAFORM
         stage('Terraform Init') {
             steps {
                 dir('terraform') {
@@ -91,14 +130,17 @@ pipeline {
                         script: "cd terraform && terraform output -raw public_ip",
                         returnStdout: true
                     ).trim()
-
-                    echo "EC2 IP: ${EC2_IP}"
                 }
             }
         }
 
-        // ------------------ ANSIBLE ------------------
+        stage('Approve Deployment') {
+            steps {
+                input message: "Deploy ${TAG} to EC2 (${EC2_IP})?"
+            }
+        }
 
+        // 🔥 ANSIBLE
         stage('Create Inventory') {
             steps {
                 withCredentials([sshUserPrivateKey(
@@ -113,12 +155,9 @@ pipeline {
             }
         }
 
-        stage('Wait for EC2 SSH') {
+        stage('Wait for EC2') {
             steps {
-                sh '''
-                echo "Waiting for EC2 to be ready..."
-                sleep 60
-                '''
+                sh 'sleep 60'
             }
         }
 
@@ -132,12 +171,24 @@ pipeline {
         }
     }
 
+    // 🔥 EMAIL (YOUR FORMAT APPLIED)
     post {
         success {
-            echo "Deployment Successful! Access app at http://$EC2_IP"
+            emailext(
+                mimeType: 'text/html',
+                subject: "✅ Jenkins CI/CD Success | ${JOB_NAME} #${BUILD_NUMBER}",
+                body: "<h2 style='color:green;'>Deployment Successful!</h2><p>App: http://${EC2_IP}</p>",
+                to: "nipamrohit121@gmail.com"
+            )
         }
+
         failure {
-            echo "Pipeline Failed!"
+            emailext(
+                mimeType: 'text/html',
+                subject: "❌ Jenkins CI/CD Failure | ${JOB_NAME} #${BUILD_NUMBER}",
+                body: "<h2 style='color:red;'>Pipeline Failed</h2><p>Check logs: ${BUILD_URL}</p>",
+                to: "nipamrohit121@gmail.com"
+            )
         }
     }
 }
