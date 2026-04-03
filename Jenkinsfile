@@ -114,6 +114,25 @@ pipeline {
         //     }
         // }
 
+
+stage('Debug Credentials') {
+    steps {
+        withCredentials([[
+            $class: 'AmazonWebServicesCredentialsBinding',
+            credentialsId: 'aws-creds',
+            accessKeyVariable: 'AWS_ACCESS_KEY_ID',
+            secretKeyVariable: 'AWS_SECRET_ACCESS_KEY'
+        ]]) {
+            sh '''
+                echo "Key starts with: $(echo $AWS_ACCESS_KEY_ID | cut -c1-4)..."
+                echo "Secret length: ${#AWS_SECRET_ACCESS_KEY}"
+                aws sts get-caller-identity
+            '''
+        }
+    }
+}
+
+
         stage('Check EC2 Exists') {
     steps {
         withCredentials([[
