@@ -28,69 +28,69 @@ pipeline {
             }
         }
 
-        stage('Build Docker Image') {
-            steps {
-                sh 'docker build -t $IMAGE_NAME:$TAG .'
-            }
-        }
+        // stage('Build Docker Image') {
+        //     steps {
+        //         sh 'docker build -t $IMAGE_NAME:$TAG .'
+        //     }
+        // }
 
-        stage('Trivy Scan + Report') {
-            steps {
-                sh '''
-                mkdir -p templates
-                curl -s -o templates/custom.tpl https://raw.githubusercontent.com/aquasecurity/trivy/main/contrib/html.tpl
+        // stage('Trivy Scan + Report') {
+        //     steps {
+        //         sh '''
+        //         mkdir -p templates
+        //         curl -s -o templates/custom.tpl https://raw.githubusercontent.com/aquasecurity/trivy/main/contrib/html.tpl
 
-                trivy image \
-                --severity HIGH,CRITICAL \
-                --ignore-unfixed \
-                --format template \
-                --template "@templates/custom.tpl" \
-                -o trivy-report.html \
-                $IMAGE_NAME:$TAG
-                '''
-            }
-        }
+        //         trivy image \
+        //         --severity HIGH,CRITICAL \
+        //         --ignore-unfixed \
+        //         --format template \
+        //         --template "@templates/custom.tpl" \
+        //         -o trivy-report.html \
+        //         $IMAGE_NAME:$TAG
+        //         '''
+        //     }
+        // }
 
-        stage('Publish Trivy Report') {
-            steps {
-                publishHTML([
-                    reportName: 'Trivy Security Report',
-                    reportDir: '.',
-                    reportFiles: 'trivy-report.html',
-                    keepAll: true,
-                    alwaysLinkToLastBuild: true,
-                    allowMissing: false
-                ])
-            }
-        }
+        // stage('Publish Trivy Report') {
+        //     steps {
+        //         publishHTML([
+        //             reportName: 'Trivy Security Report',
+        //             reportDir: '.',
+        //             reportFiles: 'trivy-report.html',
+        //             keepAll: true,
+        //             alwaysLinkToLastBuild: true,
+        //             allowMissing: false
+        //         ])
+        //     }
+        // }
 
-        stage('Approve Push') {
-            steps {
-                input message: "Check Trivy Report → Push ${TAG}?"
-            }
-        }
+        // stage('Approve Push') {
+        //     steps {
+        //         input message: "Check Trivy Report → Push ${TAG}?"
+        //     }
+        // }
 
-        stage('Docker Login') {
-            steps {
-                withCredentials([usernamePassword(
-                    credentialsId: 'dockerhub',
-                    usernameVariable: 'DOCKER_USER',
-                    passwordVariable: 'DOCKER_PASS'
-                )]) {
-                    sh 'echo "$DOCKER_PASS" | docker login -u "$DOCKER_USER" --password-stdin'
-                }
-            }
-        }
+        // stage('Docker Login') {
+        //     steps {
+        //         withCredentials([usernamePassword(
+        //             credentialsId: 'dockerhub',
+        //             usernameVariable: 'DOCKER_USER',
+        //             passwordVariable: 'DOCKER_PASS'
+        //         )]) {
+        //             sh 'echo "$DOCKER_PASS" | docker login -u "$DOCKER_USER" --password-stdin'
+        //         }
+        //     }
+        // }
 
-        stage('Push Image') {
-            steps {
-                sh '''
-                docker tag $IMAGE_NAME:$TAG $IMAGE_NAME:latest
-                docker push $IMAGE_NAME:$TAG
-                docker push $IMAGE_NAME:latest
-                '''
-            }
-        }
+        // stage('Push Image') {
+        //     steps {
+        //         sh '''
+        //         docker tag $IMAGE_NAME:$TAG $IMAGE_NAME:latest
+        //         docker push $IMAGE_NAME:$TAG
+        //         docker push $IMAGE_NAME:latest
+        //         '''
+        //     }
+        // }
 
         // 🔥 CHECK IF EC2 EXISTS
         stage('Check EC2 Exists') {
@@ -120,7 +120,7 @@ pipeline {
                         secretKeyVariable: 'AWS_SECRET_ACCESS_KEY'
                     ]]) {
                         sh '''
-                        terraform init
+                        terraform init -migrate-state -input=false
                         terraform apply -auto-approve -input=false
                         '''
                     }
