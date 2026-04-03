@@ -31,49 +31,46 @@ pipeline {
         // ✅ FIX 1: Always init before checking output.
         // -reconfigure avoids migration prompts entirely.
         // We suppress stdout noise but let real errors surface.
-        stage('Check EC2 Exists') {
-            steps {
-                script {
-                    def ip = sh(
-                        script: """
-                            cd terraform
-                            terraform init -reconfigure -input=false > /dev/null 2>&1
-                            terraform output -raw public_ip 2>/dev/null || echo ""
-                        """,
-                        returnStdout: true
-                    ).trim()
+stage('Check EC2 Exists') {
+    steps {
+        script {
+            def ip = sh(
+                script: """
+                    cd terraform
+                    rm -rf .terraform .terraform.lock.hcl
+                    terraform init -reconfigure -input=false > /dev/null 2>&1
+                    terraform output -raw public_ip 2>/dev/null || echo ""
+                """,
+                returnStdout: true
+            ).trim()
 
-                    // Only trust it if it looks like a real IP
-                    env.EC2_EXISTS = (ip ==~ /\d+\.\d+\.\d+\.\d+/) ? "true" : "false"
-                    env.EC2_IP = ip  // ✅ FIX 2: Capture IP here if already exists
-                }
+            env.EC2_EXISTS = (ip ==~ /\d+\.\d+\.\d+\.\d+/) ? "true" : "false"
+            env.EC2_IP = ip
+        }
+    }
+}
+
+stage('Terraform Init & Apply') {
+    when {
+        expression { env.EC2_EXISTS != "true" }
+    }
+    steps {
+        dir('terraform') {
+            withCredentials([[
+                $class: 'AmazonWebServicesCredentialsBinding',
+                credentialsId: 'aws-creds',
+                accessKeyVariable: 'AWS_ACCESS_KEY_ID',
+                secretKeyVariable: 'AWS_SECRET_ACCESS_KEY'
+            ]]) {
+                sh '''
+                    rm -rf .terraform .terraform.lock.hcl
+                    terraform init -reconfigure -input=false
+                    terraform apply -auto-approve -input=false
+                '''
             }
         }
-
-        // ✅ FIX 3: rm -rf .terraform ensures a clean S3 backend init,
-        // no leftover local state confusion.
-        stage('Terraform Init & Apply') {
-            when {
-                expression { env.EC2_EXISTS != "true" }
-            }
-            steps {
-                dir('terraform') {
-                    withCredentials([[
-                        $class: 'AmazonWebServicesCredentialsBinding',
-                        credentialsId: 'aws-creds',
-                        accessKeyVariable: 'AWS_ACCESS_KEY_ID',
-                        secretKeyVariable: 'AWS_SECRET_ACCESS_KEY'
-                    ]]) {
-                        sh '''
-                            rm -rf .terraform
-                            terraform init -reconfigure -input=false
-                            terraform apply -auto-approve -input=false
-                        '''
-                    }
-                }
-            }
-        }
-
+    }
+}
         // ✅ FIX 4: Only fetch IP if we didn't already grab it in Check EC2 Exists.
         // This stage runs regardless of which path was taken.
         stage('Get EC2 IP') {
