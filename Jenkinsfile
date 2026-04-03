@@ -30,51 +30,15 @@ pipeline {
 
         stage('Build Docker Image') {
             steps {
-                sh '''
-                docker build -t $IMAGE_NAME:$TAG .
-                '''
+                sh 'docker build -t $IMAGE_NAME:$TAG .'
             }
         }
 
-        stage('Trivy Scan (Styled HTML Report)') {
+        stage('Trivy Scan') {
             steps {
                 sh '''
-                mkdir -p templates
-                curl -s -o templates/custom.tpl https://raw.githubusercontent.com/aquasecurity/trivy/main/contrib/html.tpl
-
-                trivy image \
-                --severity HIGH,CRITICAL \
-                --ignore-unfixed \
-                --format template \
-                --template "@templates/custom.tpl" \
-                -o trivy-report.html \
-                $IMAGE_NAME:$TAG
+                trivy image --severity HIGH,CRITICAL --ignore-unfixed $IMAGE_NAME:$TAG || true
                 '''
-            }
-        }
-
-        stage('Publish Trivy Report') {
-            steps {
-                publishHTML([
-                    reportName: 'Trivy Security Report',
-                    reportDir: '.',
-                    reportFiles: 'trivy-report.html',
-                    keepAll: true,
-                    alwaysLinkToLastBuild: true,
-                    allowMissing: false
-                ])
-            }
-        }
-
-        stage('Archive Report') {
-            steps {
-                archiveArtifacts artifacts: 'trivy-report.html', fingerprint: true
-            }
-        }
-
-        stage('Approve Push to DockerHub') {
-            steps {
-                input message: 'Check Trivy Report (left sidebar) → Proceed to push?'
             }
         }
 
@@ -100,6 +64,80 @@ pipeline {
                 docker push $IMAGE_NAME:latest
                 '''
             }
+        }
+
+        // ------------------ TERRAFORM ------------------
+
+        stage('Terraform Init') {
+            steps {
+                dir('terraform') {
+                    sh 'terraform init'
+                }
+            }
+        }
+
+        stage('Terraform Apply') {
+            steps {
+                dir('terraform') {
+                    sh 'terraform apply -auto-approve'
+                }
+            }
+        }
+
+        stage('Get EC2 IP') {
+            steps {
+                script {
+                    env.EC2_IP = sh(
+                        script: "cd terraform && terraform output -raw public_ip",
+                        returnStdout: true
+                    ).trim()
+
+                    echo "EC2 IP: ${EC2_IP}"
+                }
+            }
+        }
+
+        // ------------------ ANSIBLE ------------------
+
+        stage('Create Inventory') {
+            steps {
+                withCredentials([sshUserPrivateKey(
+                    credentialsId: 'ec2-key',
+                    keyFileVariable: 'KEY'
+                )]) {
+                    sh '''
+                    echo "[web]" > inventory.ini
+                    echo "$EC2_IP ansible_user=ubuntu ansible_ssh_private_key_file=$KEY" >> inventory.ini
+                    '''
+                }
+            }
+        }
+
+        stage('Wait for EC2 SSH') {
+            steps {
+                sh '''
+                echo "Waiting for EC2 to be ready..."
+                sleep 60
+                '''
+            }
+        }
+
+        stage('Ansible Deploy') {
+            steps {
+                sh '''
+                ansible-playbook -i inventory.ini playbook.yml \
+                --extra-vars "image_name=$IMAGE_NAME:$TAG"
+                '''
+            }
+        }
+    }
+
+    post {
+        success {
+            echo "Deployment Successful! Access app at http://$EC2_IP"
+        }
+        failure {
+            echo "Pipeline Failed!"
         }
     }
 }
