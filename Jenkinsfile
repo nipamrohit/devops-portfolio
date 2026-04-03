@@ -28,126 +28,58 @@ pipeline {
             }
         }
 
-        // stage('Build Docker Image') {
-        //     steps {
-        //         sh 'docker build -t $IMAGE_NAME:$TAG .'
-        //     }
-        // }
-
-        // stage('Trivy Scan + Report') {
-        //     steps {
-        //         sh '''
-        //         mkdir -p templates
-        //         curl -s -o templates/custom.tpl https://raw.githubusercontent.com/aquasecurity/trivy/main/contrib/html.tpl
-
-        //         trivy image \
-        //         --severity HIGH,CRITICAL \
-        //         --ignore-unfixed \
-        //         --format template \
-        //         --template "@templates/custom.tpl" \
-        //         -o trivy-report.html \
-        //         $IMAGE_NAME:$TAG
-        //         '''
-        //     }
-        // }
-
-        // stage('Publish Trivy Report') {
-        //     steps {
-        //         publishHTML([
-        //             reportName: 'Trivy Security Report',
-        //             reportDir: '.',
-        //             reportFiles: 'trivy-report.html',
-        //             keepAll: true,
-        //             alwaysLinkToLastBuild: true,
-        //             allowMissing: false
-        //         ])
-        //     }
-        // }
-
-        // stage('Approve Push') {
-        //     steps {
-        //         input message: "Check Trivy Report → Push ${TAG}?"
-        //     }
-        // }
-
-        // stage('Docker Login') {
-        //     steps {
-        //         withCredentials([usernamePassword(
-        //             credentialsId: 'dockerhub',
-        //             usernameVariable: 'DOCKER_USER',
-        //             passwordVariable: 'DOCKER_PASS'
-        //         )]) {
-        //             sh 'echo "$DOCKER_PASS" | docker login -u "$DOCKER_USER" --password-stdin'
-        //         }
-        //     }
-        // }
-
-        // stage('Push Image') {
-        //     steps {
-        //         sh '''
-        //         docker tag $IMAGE_NAME:$TAG $IMAGE_NAME:latest
-        //         docker push $IMAGE_NAME:$TAG
-        //         docker push $IMAGE_NAME:latest
-        //         '''
-        //     }
-        // }
-
-        // 🔥 CHECK IF EC2 EXISTS
-        // stage('Check EC2 Exists') {
-        //     steps {
-        //         script {
-        //             def status = sh(
-        //                 script: "cd terraform && terraform state list | grep aws_instance || true",
-        //                 returnStdout: true
-        //             ).trim()
-
-        //             env.EC2_EXISTS = status ? "true" : "false"
-        //         }
-        //     }
-        // }
-
+        // ✅ FIX 1: Always init before checking output.
+        // -reconfigure avoids migration prompts entirely.
+        // We suppress stdout noise but let real errors surface.
         stage('Check EC2 Exists') {
             steps {
                 script {
-                    def status = sh(
+                    def ip = sh(
                         script: """
-                        cd terraform
-                        terraform init -reconfigure -input=false >/dev/null 2>&1 || true
-                        terraform output -raw public_ip 2>/dev/null || true
+                            cd terraform
+                            terraform init -reconfigure -input=false > /dev/null 2>&1
+                            terraform output -raw public_ip 2>/dev/null || echo ""
                         """,
                         returnStdout: true
                     ).trim()
 
-                    env.EC2_EXISTS = status ? "true" : "false"
+                    // Only trust it if it looks like a real IP
+                    env.EC2_EXISTS = (ip ==~ /\d+\.\d+\.\d+\.\d+/) ? "true" : "false"
+                    env.EC2_IP = ip  // ✅ FIX 2: Capture IP here if already exists
                 }
             }
         }
 
-        // 🔥 TERRAFORM ONLY IF NOT EXISTS
+        // ✅ FIX 3: rm -rf .terraform ensures a clean S3 backend init,
+        // no leftover local state confusion.
         stage('Terraform Init & Apply') {
             when {
                 expression { env.EC2_EXISTS != "true" }
             }
             steps {
                 dir('terraform') {
-                    withCredentials([[ 
+                    withCredentials([[
                         $class: 'AmazonWebServicesCredentialsBinding',
                         credentialsId: 'aws-creds',
                         accessKeyVariable: 'AWS_ACCESS_KEY_ID',
                         secretKeyVariable: 'AWS_SECRET_ACCESS_KEY'
                     ]]) {
                         sh '''
-                        rm -rf .terraform
-
-                        terraform init -reconfigure -input=false
-                        terraform apply -auto-approve -input=false
+                            rm -rf .terraform
+                            terraform init -reconfigure -input=false
+                            terraform apply -auto-approve -input=false
                         '''
                     }
                 }
             }
         }
 
+        // ✅ FIX 4: Only fetch IP if we didn't already grab it in Check EC2 Exists.
+        // This stage runs regardless of which path was taken.
         stage('Get EC2 IP') {
+            when {
+                expression { env.EC2_EXISTS != "true" }
+            }
             steps {
                 script {
                     env.EC2_IP = sh(
@@ -171,14 +103,13 @@ pipeline {
                     keyFileVariable: 'KEY'
                 )]) {
                     sh '''
-                    echo "[web]" > ansible/inventory.ini
-                    echo "$EC2_IP ansible_user=ubuntu ansible_ssh_private_key_file=$KEY" >> ansible/inventory.ini
+                        echo "[web]" > ansible/inventory.ini
+                        echo "$EC2_IP ansible_user=ubuntu ansible_ssh_private_key_file=$KEY" >> ansible/inventory.ini
                     '''
                 }
             }
         }
 
-        // 🔥 WAIT FOR SSH (REAL FIX)
         stage('Wait for EC2 SSH') {
             steps {
                 withCredentials([sshUserPrivateKey(
@@ -186,11 +117,11 @@ pipeline {
                     keyFileVariable: 'KEY'
                 )]) {
                     sh '''
-                    for i in {1..12}; do
-                      ssh -o StrictHostKeyChecking=no -i $KEY ubuntu@$EC2_IP "echo ready" && break
-                      echo "Waiting for SSH..."
-                      sleep 10
-                    done
+                        for i in {1..12}; do
+                          ssh -o StrictHostKeyChecking=no -i $KEY ubuntu@$EC2_IP "echo ready" && break
+                          echo "Waiting for SSH..."
+                          sleep 10
+                        done
                     '''
                 }
             }
@@ -199,8 +130,8 @@ pipeline {
         stage('Ansible Deploy') {
             steps {
                 sh '''
-                ansible-playbook -i ansible/inventory.ini ansible/playbook.yml \
-                --extra-vars "image_name=$IMAGE_NAME:$TAG"
+                    ansible-playbook -i ansible/inventory.ini ansible/playbook.yml \
+                    --extra-vars "image_name=$IMAGE_NAME:$TAG"
                 '''
             }
         }
