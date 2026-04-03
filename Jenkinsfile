@@ -93,11 +93,28 @@ pipeline {
         // }
 
         // 🔥 CHECK IF EC2 EXISTS
+        // stage('Check EC2 Exists') {
+        //     steps {
+        //         script {
+        //             def status = sh(
+        //                 script: "cd terraform && terraform state list | grep aws_instance || true",
+        //                 returnStdout: true
+        //             ).trim()
+
+        //             env.EC2_EXISTS = status ? "true" : "false"
+        //         }
+        //     }
+        // }
+
         stage('Check EC2 Exists') {
             steps {
                 script {
                     def status = sh(
-                        script: "cd terraform && terraform state list | grep aws_instance || true",
+                        script: """
+                        cd terraform
+                        terraform init -reconfigure -input=false >/dev/null 2>&1 || true
+                        terraform state list 2>/dev/null | grep aws_instance || true
+                        """,
                         returnStdout: true
                     ).trim()
 
@@ -120,7 +137,7 @@ pipeline {
                         secretKeyVariable: 'AWS_SECRET_ACCESS_KEY'
                     ]]) {
                         sh '''
-                        terraform init -migrate-state -input=false
+                        terraform init -reconfigure -input=false
                         terraform apply -auto-approve -input=false
                         '''
                     }
