@@ -16,7 +16,7 @@ const contactLinks = [
     name: "LinkedIn",
     icon: Linkedin,
     href: "https://linkedin.com",
-    label: "Nipam Rohit",
+    label: "Nipam ",
   },
   {
     name: "Email",
