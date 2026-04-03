@@ -1,0 +1,41 @@
+- name: Setup EC2 for Next.js App
+  hosts: web
+  become: true
+
+  vars:
+    image_name: nipamrohit121/devops-portfolio:latest
+    container_name: nextjs-app
+
+  tasks:
+
+    - name: Update packages
+      apt:
+        update_cache: yes
+
+    - name: Install dependencies
+      apt:
+        name:
+          - docker.io
+          - python3-pip
+        state: present
+
+    - name: Start Docker
+      service:
+        name: docker
+        state: started
+        enabled: true
+
+    - name: Add ubuntu to docker group
+      user:
+        name: ubuntu
+        groups: docker
+        append: yes
+
+    - name: Pull Docker image
+      docker_container:
+        name: "{{ container_name }}"
+        image: "{{ image_name }}"
+        state: started
+        restart_policy: always
+        ports:
+          - "80:3000"
