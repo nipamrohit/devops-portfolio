@@ -36,6 +36,18 @@ pipeline {
                 '''
             }
         }
+        stage('Publish Trivy Report') {
+            steps {
+                publishHTML([
+                    reportName: 'Trivy Security Report',
+                    reportDir: '.',
+                    reportFiles: 'trivy-report.html',
+                    keepAll: true,
+                    alwaysLinkToLastBuild: true,
+                    allowMissing: false
+                ])
+            }
+        }
 
         stage('Archive Report') {
             steps {
