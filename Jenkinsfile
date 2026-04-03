@@ -106,8 +106,8 @@ pipeline {
                     keyFileVariable: 'KEY'
                 )]) {
                     sh '''
-                    echo "[web]" > inventory.ini
-                    echo "$EC2_IP ansible_user=ubuntu ansible_ssh_private_key_file=$KEY" >> inventory.ini
+                    echo "[web]" > ansible/inventory.ini
+                    echo "$EC2_IP ansible_user=ubuntu ansible_ssh_private_key_file=$KEY" >> ansible/inventory.ini
                     '''
                 }
             }
@@ -125,7 +125,7 @@ pipeline {
         stage('Ansible Deploy') {
             steps {
                 sh '''
-                ansible-playbook -i inventory.ini playbook.yml \
+                ansible-playbook -i ansible/inventory.ini ansible/playbook.yml \
                 --extra-vars "image_name=$IMAGE_NAME:$TAG"
                 '''
             }
