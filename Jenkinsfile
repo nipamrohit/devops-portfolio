@@ -28,105 +28,66 @@ pipeline {
             }
         }
 
-        // stage('Build Docker Image') {
-        //     steps {
-        //         sh 'docker build -t $IMAGE_NAME:$TAG .'
-        //     }
-        // }
-
-        // stage('Trivy Scan + Report') {
-        //     steps {
-        //         sh '''
-        //         mkdir -p templates
-        //         curl -s -o templates/custom.tpl https://raw.githubusercontent.com/aquasecurity/trivy/main/contrib/html.tpl
-
-        //         trivy image \
-        //         --severity HIGH,CRITICAL \
-        //         --ignore-unfixed \
-        //         --format template \
-        //         --template "@templates/custom.tpl" \
-        //         -o trivy-report.html \
-        //         $IMAGE_NAME:$TAG
-        //         '''
-        //     }
-        // }
-
-        // stage('Publish Trivy Report') {
-        //     steps {
-        //         publishHTML([
-        //             reportName: 'Trivy Security Report',
-        //             reportDir: '.',
-        //             reportFiles: 'trivy-report.html',
-        //             keepAll: true,
-        //             alwaysLinkToLastBuild: true,
-        //             allowMissing: false
-        //         ])
-        //     }
-        // }
-
-        // stage('Approve Push') {
-        //     steps {
-        //         input message: "Check Trivy Report → Push ${TAG}?"
-        //     }
-        // }
-
-        // stage('Docker Login') {
-        //     steps {
-        //         withCredentials([usernamePassword(
-        //             credentialsId: 'dockerhub',
-        //             usernameVariable: 'DOCKER_USER',
-        //             passwordVariable: 'DOCKER_PASS'
-        //         )]) {
-        //             sh 'echo "$DOCKER_PASS" | docker login -u "$DOCKER_USER" --password-stdin'
-        //         }
-        //     }
-        // }
-
-        // stage('Push Image') {
-        //     steps {
-        //         sh '''
-        //         docker tag $IMAGE_NAME:$TAG $IMAGE_NAME:latest
-        //         docker push $IMAGE_NAME:$TAG
-        //         docker push $IMAGE_NAME:latest
-        //         '''
-        //     }
-        // }
-
-        stage('Check EC2 Exists') {
+        stage('Build Docker Image') {
             steps {
-                withCredentials([[
-                    $class: 'AmazonWebServicesCredentialsBinding',
-                    credentialsId: 'aws-creds',
-                    accessKeyVariable: 'AWS_ACCESS_KEY_ID',
-                    secretKeyVariable: 'AWS_SECRET_ACCESS_KEY'
-                ]]) {
-                    script {
-                        def ip = sh(
-                            script: """
-                                cd terraform
-                                rm -rf .terraform .terraform.lock.hcl terraform.tfstate terraform.tfstate.backup
-                                terraform init -reconfigure -input=false 2>&1 | tail -5
-                                terraform output -raw public_ip 2>/dev/null || echo ""
-                            """,
-                            returnStdout: true
-                        ).trim()
+                sh 'docker build -t $IMAGE_NAME:$TAG .'
+            }
+        }
 
-                        // Only last line matters — the IP (init output goes to tail -5 above)
-                        def lines = ip.split('\n')
-                        def lastLine = lines[-1].trim()
+        stage('Trivy Scan + Report') {
+            steps {
+                sh '''
+                    mkdir -p templates
+                    curl -s -o templates/custom.tpl https://raw.githubusercontent.com/aquasecurity/trivy/main/contrib/html.tpl
 
-                        env.EC2_EXISTS = (lastLine ==~ /\d+\.\d+\.\d+\.\d+/) ? "true" : "false"
-                        env.EC2_IP = lastLine
-                        echo "EC2_EXISTS=${env.EC2_EXISTS}, EC2_IP=${env.EC2_IP}"
-                    }
+                    trivy image \
+                    --severity HIGH,CRITICAL \
+                    --ignore-unfixed \
+                    --format template \
+                    --template "@templates/custom.tpl" \
+                    -o trivy-report.html \
+                    $IMAGE_NAME:$TAG
+                '''
+            }
+        }
+
+        stage('Publish Trivy Report') {
+            steps {
+                publishHTML([
+                    reportName: 'Trivy Security Report',
+                    reportDir: '.',
+                    reportFiles: 'trivy-report.html',
+                    keepAll: true,
+                    alwaysLinkToLastBuild: true,
+                    allowMissing: false
+                ])
+            }
+        }
+
+        stage('Approve Push') {
+            steps {
+                input message: "Check Trivy Report → Push ${TAG}?"
+            }
+        }
+
+        stage('Docker Login & Push') {
+            steps {
+                withCredentials([usernamePassword(
+                    credentialsId: 'dockerhub',
+                    usernameVariable: 'DOCKER_USER',
+                    passwordVariable: 'DOCKER_PASS'
+                )]) {
+                    sh '''
+                        echo "$DOCKER_PASS" | docker login -u "$DOCKER_USER" --password-stdin
+                        docker tag $IMAGE_NAME:$TAG $IMAGE_NAME:latest
+                        docker push $IMAGE_NAME:$TAG
+                        docker push $IMAGE_NAME:latest
+                    '''
                 }
             }
         }
 
-        stage('Terraform Init & Apply') {
-            when {
-                expression { env.EC2_EXISTS != "true" }
-            }
+        stage('Terraform Plan & Apply') {
             steps {
                 dir('terraform') {
                     withCredentials([[
@@ -141,9 +102,8 @@ pipeline {
                                 terraform init -reconfigure -input=false
                                 terraform apply -auto-approve -input=false
                             '''
-                            // Capture IP while credentials are still active
                             env.EC2_IP = sh(
-                                script: "terraform output -raw public_ip",
+                                script: 'terraform output -raw public_ip',
                                 returnStdout: true
                             ).trim()
                             echo "EC2_IP=${env.EC2_IP}"
@@ -159,7 +119,7 @@ pipeline {
             }
         }
 
-        stage('Create Inventory') {
+        stage('Deploy to EC2') {
             steps {
                 withCredentials([sshUserPrivateKey(
                     credentialsId: 'ec2-key',
@@ -168,34 +128,17 @@ pipeline {
                     sh '''
                         echo "[web]" > ansible/inventory.ini
                         echo "$EC2_IP ansible_user=ubuntu ansible_ssh_private_key_file=$KEY" >> ansible/inventory.ini
-                    '''
-                }
-            }
-        }
 
-        stage('Wait for EC2 SSH') {
-            steps {
-                withCredentials([sshUserPrivateKey(
-                    credentialsId: 'ec2-key',
-                    keyFileVariable: 'KEY'
-                )]) {
-                    sh '''
                         for i in {1..12}; do
                           ssh -o StrictHostKeyChecking=no -i $KEY ubuntu@$EC2_IP "echo ready" && break
                           echo "Waiting for SSH..."
                           sleep 10
                         done
+
+                        ansible-playbook -i ansible/inventory.ini ansible/playbook.yml \
+                        --extra-vars "image_name=$IMAGE_NAME:$TAG"
                     '''
                 }
-            }
-        }
-
-        stage('Ansible Deploy') {
-            steps {
-                sh '''
-                    ansible-playbook -i ansible/inventory.ini ansible/playbook.yml \
-                    --extra-vars "image_name=$IMAGE_NAME:$TAG"
-                '''
             }
         }
     }
@@ -209,7 +152,13 @@ pipeline {
             emailext(
                 mimeType: 'text/html',
                 subject: "✅ Jenkins CI/CD Success | ${JOB_NAME} #${BUILD_NUMBER}",
-                body: "<h2 style='color:green;'>Deployment Successful</h2><p>App: http://${EC2_IP}</p>",
+                body: """
+                    <h2 style='color:green;'>Deployment Successful</h2>
+                    <p><b>Job:</b> ${JOB_NAME} #${BUILD_NUMBER}</p>
+                    <p><b>Image:</b> ${IMAGE_NAME}:${TAG}</p>
+                    <p><b>App:</b> <a href='http://${EC2_IP}'>http://${EC2_IP}</a></p>
+                    <p><b>Build URL:</b> <a href='${BUILD_URL}'>${BUILD_URL}</a></p>
+                """,
                 to: "nipamrohit121@gmail.com"
             )
         }
@@ -218,7 +167,11 @@ pipeline {
             emailext(
                 mimeType: 'text/html',
                 subject: "❌ Jenkins CI/CD Failure | ${JOB_NAME} #${BUILD_NUMBER}",
-                body: "<h2 style='color:red;'>Pipeline Failed</h2><p>Check logs: ${BUILD_URL}</p>",
+                body: """
+                    <h2 style='color:red;'>Pipeline Failed</h2>
+                    <p><b>Job:</b> ${JOB_NAME} #${BUILD_NUMBER}</p>
+                    <p><b>Check logs:</b> <a href='${BUILD_URL}'>${BUILD_URL}</a></p>
+                """,
                 to: "nipamrohit121@gmail.com"
             )
         }
