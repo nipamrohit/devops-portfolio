@@ -6,11 +6,12 @@ pipeline {
         TAG = "latest"
     }
 
+
     stages {
 
         stage('Clone Repo') {
             steps {
-                git 'https://github.com/nipamrohit/devops-portfolio.git'
+                git branch: 'main', url: 'https://github.com/nipamrohit/devops-portfolio.git'
             }
         }
 
