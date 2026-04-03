@@ -112,6 +112,7 @@ pipeline {
                     def status = sh(
                         script: """
                         cd terraform
+                        rm -f terraform.tfstate terraform.tfstate.backup
                         terraform init -reconfigure -input=false >/dev/null 2>&1 || true
                         terraform state list 2>/dev/null | grep aws_instance || true
                         """,
