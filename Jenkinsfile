@@ -1,11 +1,14 @@
 pipeline {
     agent any
 
+    options {
+        skipDefaultCheckout(true)
+    }
+
     environment {
         IMAGE_NAME = "nipamrohit121/devops-portfolio"
         TAG = "latest"
     }
-
 
     stages {
 
@@ -25,6 +28,7 @@ pipeline {
             steps {
                 sh '''
                 trivy image \
+                --severity HIGH,CRITICAL \
                 --format template \
                 --template "@/usr/local/share/trivy/templates/html.tpl" \
                 -o trivy-report.html \
@@ -41,14 +45,14 @@ pipeline {
 
         stage('Approve Push to DockerHub') {
             steps {
-                input message: 'Do you want to push image to DockerHub?'
+                input message: 'Check Trivy Report → Proceed to push?'
             }
         }
 
         stage('Docker Login') {
             steps {
                 withCredentials([usernamePassword(
-                    credentialsId: 'docker-creds',
+                    credentialsId: 'dockerhub',
                     usernameVariable: 'DOCKER_USER',
                     passwordVariable: 'DOCKER_PASS'
                 )]) {
