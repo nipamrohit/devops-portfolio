@@ -38,14 +38,15 @@ pipeline {
         }
         stage('Publish Trivy Report') {
             steps {
-                publishHTML([
-                    reportName: 'Trivy Security Report',
-                    reportDir: '.',
-                    reportFiles: 'trivy-report.html',
-                    keepAll: true,
-                    alwaysLinkToLastBuild: true,
-                    allowMissing: false
-                ])
+                sh '''
+                trivy image \
+                --severity HIGH,CRITICAL \
+                --ignore-unfixed \
+                --format template \
+                --template "@/templates/custom.tpl" \
+                -o trivy-report.html \
+                $IMAGE_NAME:$TAG
+                '''
             }
         }
 
