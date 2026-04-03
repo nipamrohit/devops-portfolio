@@ -28,51 +28,112 @@ pipeline {
             }
         }
 
-        // ✅ FIX 1: Always init before checking output.
-        // -reconfigure avoids migration prompts entirely.
-        // We suppress stdout noise but let real errors surface.
-stage('Check EC2 Exists') {
-    steps {
-        script {
-            def ip = sh(
-                script: """
-                    cd terraform
-                    rm -rf .terraform .terraform.lock.hcl
-                    terraform init -reconfigure -input=false > /dev/null 2>&1
-                    terraform output -raw public_ip 2>/dev/null || echo ""
-                """,
-                returnStdout: true
-            ).trim()
+        // stage('Build Docker Image') {
+        //     steps {
+        //         sh 'docker build -t $IMAGE_NAME:$TAG .'
+        //     }
+        // }
 
-            env.EC2_EXISTS = (ip ==~ /\d+\.\d+\.\d+\.\d+/) ? "true" : "false"
-            env.EC2_IP = ip
-        }
-    }
-}
+        // stage('Trivy Scan + Report') {
+        //     steps {
+        //         sh '''
+        //         mkdir -p templates
+        //         curl -s -o templates/custom.tpl https://raw.githubusercontent.com/aquasecurity/trivy/main/contrib/html.tpl
 
-stage('Terraform Init & Apply') {
-    when {
-        expression { env.EC2_EXISTS != "true" }
-    }
-    steps {
-        dir('terraform') {
-            withCredentials([[
-                $class: 'AmazonWebServicesCredentialsBinding',
-                credentialsId: 'aws-creds',
-                accessKeyVariable: 'AWS_ACCESS_KEY_ID',
-                secretKeyVariable: 'AWS_SECRET_ACCESS_KEY'
-            ]]) {
-                sh '''
-                    rm -rf .terraform .terraform.lock.hcl
-                    terraform init -reconfigure -input=false
-                    terraform apply -auto-approve -input=false
-                '''
+        //         trivy image \
+        //         --severity HIGH,CRITICAL \
+        //         --ignore-unfixed \
+        //         --format template \
+        //         --template "@templates/custom.tpl" \
+        //         -o trivy-report.html \
+        //         $IMAGE_NAME:$TAG
+        //         '''
+        //     }
+        // }
+
+        // stage('Publish Trivy Report') {
+        //     steps {
+        //         publishHTML([
+        //             reportName: 'Trivy Security Report',
+        //             reportDir: '.',
+        //             reportFiles: 'trivy-report.html',
+        //             keepAll: true,
+        //             alwaysLinkToLastBuild: true,
+        //             allowMissing: false
+        //         ])
+        //     }
+        // }
+
+        // stage('Approve Push') {
+        //     steps {
+        //         input message: "Check Trivy Report → Push ${TAG}?"
+        //     }
+        // }
+
+        // stage('Docker Login') {
+        //     steps {
+        //         withCredentials([usernamePassword(
+        //             credentialsId: 'dockerhub',
+        //             usernameVariable: 'DOCKER_USER',
+        //             passwordVariable: 'DOCKER_PASS'
+        //         )]) {
+        //             sh 'echo "$DOCKER_PASS" | docker login -u "$DOCKER_USER" --password-stdin'
+        //         }
+        //     }
+        // }
+
+        // stage('Push Image') {
+        //     steps {
+        //         sh '''
+        //         docker tag $IMAGE_NAME:$TAG $IMAGE_NAME:latest
+        //         docker push $IMAGE_NAME:$TAG
+        //         docker push $IMAGE_NAME:latest
+        //         '''
+        //     }
+        // }
+
+        stage('Check EC2 Exists') {
+            steps {
+                script {
+                    def ip = sh(
+                        script: """
+                            cd terraform
+                            rm -rf .terraform .terraform.lock.hcl
+                            terraform init -reconfigure -input=false > /dev/null 2>&1
+                            terraform output -raw public_ip 2>/dev/null || echo ""
+                        """,
+                        returnStdout: true
+                    ).trim()
+
+                    env.EC2_EXISTS = (ip ==~ /\d+\.\d+\.\d+\.\d+/) ? "true" : "false"
+                    env.EC2_IP = ip
+                    echo "EC2_EXISTS=${env.EC2_EXISTS}, EC2_IP=${env.EC2_IP}"
+                }
             }
         }
-    }
-}
-        // ✅ FIX 4: Only fetch IP if we didn't already grab it in Check EC2 Exists.
-        // This stage runs regardless of which path was taken.
+
+        stage('Terraform Init & Apply') {
+            when {
+                expression { env.EC2_EXISTS != "true" }
+            }
+            steps {
+                dir('terraform') {
+                    withCredentials([[
+                        $class: 'AmazonWebServicesCredentialsBinding',
+                        credentialsId: 'aws-creds',
+                        accessKeyVariable: 'AWS_ACCESS_KEY_ID',
+                        secretKeyVariable: 'AWS_SECRET_ACCESS_KEY'
+                    ]]) {
+                        sh '''
+                            rm -rf .terraform .terraform.lock.hcl
+                            terraform init -reconfigure -input=false
+                            terraform apply -auto-approve -input=false
+                        '''
+                    }
+                }
+            }
+        }
+
         stage('Get EC2 IP') {
             when {
                 expression { env.EC2_EXISTS != "true" }
@@ -83,6 +144,7 @@ stage('Terraform Init & Apply') {
                         script: "cd terraform && terraform output -raw public_ip",
                         returnStdout: true
                     ).trim()
+                    echo "Newly created EC2_IP=${env.EC2_IP}"
                 }
             }
         }
