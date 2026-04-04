@@ -15,11 +15,11 @@ pipeline {
             }
         }
 
-        stage('Clone Repo') {
-            steps {
-                git branch: 'main', url: 'https://github.com/nipamrohit/devops-portfolio.git'
-            }
-        }
+        // stage('Clone Repo') {
+        //     steps {
+        //         git branch: 'main', url: 'https://github.com/nipamrohit/devops-portfolio.git'
+        //     }
+        // }
 
         // stage('Build Docker Image') {
         //     steps {
