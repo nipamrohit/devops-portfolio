@@ -14,7 +14,7 @@ const contactLinks = [
   },
   {
     name: "LinkedIn",
-    icon: Linkedinn,
+    icon: Linkedin,
     href: "https://linkedin.com",
     label: "Nipam ",
   },
@@ -22,7 +22,7 @@ const contactLinks = [
     name: "Email",
     icon: Mail,
     href: "mailto:nipamrohit.ce@gmail.com",
-    label: "nipamrohit.ce@gmail.com",
+    label: "nipamrohit121.ce@gmail.com",
   },
 ];
 
