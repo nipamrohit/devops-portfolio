@@ -14,10 +14,7 @@ pipeline {
         stage('Get Version') {
             steps {
                 script {
-                    env.TAG = input(
-                        message: 'Enter Docker Image Version (v1, v2)',
-                        parameters: [string(name: 'VERSION', defaultValue: 'v1')]
-                    )
+                    env.TAG = "v${BUILD_NUMBER}"
                 }
             }
         }
