@@ -75,7 +75,7 @@ export function Hero() {
           className="mb-6 text-5xl font-bold tracking-tight text-foreground sm:text-6xl md:text-7xl"
         >
           <span className="text-balance">Hi, I&apos;m </span>
-          <span className="text-foreground">Nipam Rohit</span>
+          <span className="text-foreground">Nipam </span>
         </motion.h1>
 
         <motion.p
