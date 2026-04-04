@@ -1,10 +1,6 @@
 pipeline {
     agent any
 
-    options {
-        skipDefaultCheckout(true)
-    }
-
     environment {
         IMAGE_NAME = "nipamrohit121/devops-portfolio"
     }
