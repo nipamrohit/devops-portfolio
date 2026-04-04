@@ -14,7 +14,7 @@ const contactLinks = [
   },
   {
     name: "LinkedIn",
-    icon: Linkedin,
+    icon: Linkedinn,
     href: "https://linkedin.com",
     label: "Nipam ",
   },
