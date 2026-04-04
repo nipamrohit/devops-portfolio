@@ -10,7 +10,7 @@ pipeline {
         stage('Checkout') {
             steps {
                 checkout scm
-                }
+            }
         }
 
         stage('Get Version') {
@@ -20,12 +20,6 @@ pipeline {
                 }
             }
         }
-
-        // stage('Clone Repo') {
-        //     steps {
-        //         git branch: 'main', url: 'https://github.com/nipamrohit/devops-portfolio.git'
-        //     }
-        // }
 
         // stage('Build Docker Image') {
         //     steps {
@@ -149,11 +143,12 @@ pipeline {
         success {
             emailext(
                 mimeType: 'text/html',
+                from: 'nipammaruti121@gmail.com',
                 subject: "✅ Jenkins CI/CD Success | ${JOB_NAME} #${BUILD_NUMBER}",
                 body: """
                 <html>
                 <body style="font-family:Arial,sans-serif; background-color:#f4f6f8; padding:20px;">
-                    <div style="max-width:700px; background:#ffffff; padding:30px; border-radius:8px; border-top:5px solid #28a745;">
+                    <div style="max-width:700px; margin:auto; background:#ffffff; padding:30px; border-radius:8px; border-top:5px solid #28a745;">
 
                         <h2 style="color:#28a745; margin-top:0;">✅ Deployment Successful</h2>
                         <p style="color:#555;">The Jenkins pipeline completed successfully. Your app is live.</p>
@@ -226,11 +221,12 @@ pipeline {
         failure {
             emailext(
                 mimeType: 'text/html',
+                from: 'nipammaruti121@gmail.com',
                 subject: "❌ Jenkins CI/CD Failure | ${JOB_NAME} #${BUILD_NUMBER}",
                 body: """
                 <html>
                 <body style="font-family:Arial,sans-serif; background-color:#f4f6f8; padding:20px;">
-                    <div style="max-width:700px; background:#ffffff; padding:30px; border-radius:8px; border-top:5px solid #d9534f;">
+                    <div style="max-width:700px; margin:auto; background:#ffffff; padding:30px; border-radius:8px; border-top:5px solid #d9534f;">
 
                         <h2 style="color:#d9534f; margin-top:0;">❌ Build Failed</h2>
                         <p style="color:#555;">The Jenkins pipeline has <b>failed</b>. Please review the logs below.</p>
