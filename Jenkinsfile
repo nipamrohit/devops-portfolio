@@ -16,7 +16,7 @@ pipeline {
         stage('Get Version') {
             steps {
                 script {
-                    env.TAG = "v${BUILD_NUMBER}"
+                    env.TAG = "latest"
                 }
             }
         }
@@ -140,153 +140,175 @@ pipeline {
             echo "Pipeline completed"
         }
 
-        success {
-            emailext(
-                mimeType: 'text/html',
-                from: 'nipammaruti121@gmail.com',
-                subject: "✅ Jenkins CI/CD Success | ${JOB_NAME} #${BUILD_NUMBER}",
-                body: """
-                <html>
-                <body style="font-family:Arial,sans-serif; background-color:#f4f6f8; padding:20px;">
-                    <div style="max-width:700px; margin:auto; background:#ffffff; padding:30px; border-radius:8px; border-top:5px solid #28a745;">
+        // success {
+        //     emailext(
+        //         mimeType: 'text/html',
+        //         from: 'nipammaruti121@gmail.com',
+        //         subject: "✅ Jenkins CI/CD Success | ${JOB_NAME} #${BUILD_NUMBER}",
+        //         body: """
+        //         <html>
+        //         <body style="font-family:Arial,sans-serif; background-color:#f4f6f8; padding:20px;">
+        //             <div style="max-width:700px; margin:auto; background:#ffffff; padding:30px; border-radius:8px; border-top:5px solid #28a745;">
 
-                        <h2 style="color:#28a745; margin-top:0;">✅ Deployment Successful</h2>
-                        <p style="color:#555;">The Jenkins pipeline completed successfully. Your app is live.</p>
+        //                 <h2 style="color:#28a745; margin-top:0;">✅ Deployment Successful</h2>
+        //                 <p style="color:#555;">The Jenkins pipeline completed successfully. Your app is live.</p>
 
-                        <table width="100%" cellpadding="10" cellspacing="0"
-                               style="border-collapse:collapse; border:1px solid #ddd; margin-top:16px;">
-                            <tr style="background:#f0fff4;">
-                                <td width="35%" style="border:1px solid #ddd;"><b>Project</b></td>
-                                <td style="border:1px solid #ddd;">${JOB_NAME}</td>
-                            </tr>
-                            <tr>
-                                <td style="border:1px solid #ddd;"><b>Build Number</b></td>
-                                <td style="border:1px solid #ddd;">#${BUILD_NUMBER}</td>
-                            </tr>
-                            <tr style="background:#f0fff4;">
-                                <td style="border:1px solid #ddd;"><b>Build Status</b></td>
-                                <td style="border:1px solid #ddd; color:#28a745;"><b>✅ SUCCESS</b></td>
-                            </tr>
-                            <tr>
-                                <td style="border:1px solid #ddd;"><b>Docker Image</b></td>
-                                <td style="border:1px solid #ddd;">${IMAGE_NAME}:${TAG}</td>
-                            </tr>
-                            <tr style="background:#f0fff4;">
-                                <td style="border:1px solid #ddd;"><b>EC2 Public IP</b></td>
-                                <td style="border:1px solid #ddd;">${EC2_IP}</td>
-                            </tr>
-                            <tr>
-                                <td style="border:1px solid #ddd;"><b>Node</b></td>
-                                <td style="border:1px solid #ddd;">${NODE_NAME}</td>
-                            </tr>
-                            <tr style="background:#f0fff4;">
-                                <td style="border:1px solid #ddd;"><b>Live App</b></td>
-                                <td style="border:1px solid #ddd;">
-                                    <a href="http://${EC2_IP}" style="color:#007bff;">http://${EC2_IP}</a>
-                                </td>
-                            </tr>
-                            <tr>
-                                <td style="border:1px solid #ddd;"><b>Build URL</b></td>
-                                <td style="border:1px solid #ddd;">
-                                    <a href="${BUILD_URL}" style="color:#007bff;">${BUILD_URL}</a>
-                                </td>
-                            </tr>
-                            <tr style="background:#f0fff4;">
-                                <td style="border:1px solid #ddd;"><b>Console Logs</b></td>
-                                <td style="border:1px solid #ddd;">
-                                    <a href="${BUILD_URL}console" style="color:#007bff;">${BUILD_URL}console</a>
-                                </td>
-                            </tr>
-                        </table>
+        //                 <table width="100%" cellpadding="10" cellspacing="0"
+        //                        style="border-collapse:collapse; border:1px solid #ddd; margin-top:16px;">
+        //                     <tr style="background:#f0fff4;">
+        //                         <td width="35%" style="border:1px solid #ddd;"><b>Project</b></td>
+        //                         <td style="border:1px solid #ddd;">${JOB_NAME}</td>
+        //                     </tr>
+        //                     <tr>
+        //                         <td style="border:1px solid #ddd;"><b>Build Number</b></td>
+        //                         <td style="border:1px solid #ddd;">#${BUILD_NUMBER}</td>
+        //                     </tr>
+        //                     <tr style="background:#f0fff4;">
+        //                         <td style="border:1px solid #ddd;"><b>Build Status</b></td>
+        //                         <td style="border:1px solid #ddd; color:#28a745;"><b>✅ SUCCESS</b></td>
+        //                     </tr>
+        //                     <tr>
+        //                         <td style="border:1px solid #ddd;"><b>Docker Image</b></td>
+        //                         <td style="border:1px solid #ddd;">${IMAGE_NAME}:${TAG}</td>
+        //                     </tr>
+        //                     <tr style="background:#f0fff4;">
+        //                         <td style="border:1px solid #ddd;"><b>EC2 Public IP</b></td>
+        //                         <td style="border:1px solid #ddd;">${EC2_IP}</td>
+        //                     </tr>
+        //                     <tr>
+        //                         <td style="border:1px solid #ddd;"><b>Node</b></td>
+        //                         <td style="border:1px solid #ddd;">${NODE_NAME}</td>
+        //                     </tr>
+        //                     <tr style="background:#f0fff4;">
+        //                         <td style="border:1px solid #ddd;"><b>Live App</b></td>
+        //                         <td style="border:1px solid #ddd;">
+        //                             <a href="http://${EC2_IP}" style="color:#007bff;">http://${EC2_IP}</a>
+        //                         </td>
+        //                     </tr>
+        //                     <tr>
+        //                         <td style="border:1px solid #ddd;"><b>Build URL</b></td>
+        //                         <td style="border:1px solid #ddd;">
+        //                             <a href="${BUILD_URL}" style="color:#007bff;">${BUILD_URL}</a>
+        //                         </td>
+        //                     </tr>
+        //                     <tr style="background:#f0fff4;">
+        //                         <td style="border:1px solid #ddd;"><b>Console Logs</b></td>
+        //                         <td style="border:1px solid #ddd;">
+        //                             <a href="${BUILD_URL}console" style="color:#007bff;">${BUILD_URL}console</a>
+        //                         </td>
+        //                     </tr>
+        //                 </table>
 
-                        <br>
-                        <p style="color:#555;">
-                            🚀 Your application has been deployed and is accessible at
-                            <a href="http://${EC2_IP}" style="color:#28a745;"><b>http://${EC2_IP}</b></a>
-                        </p>
+        //                 <br>
+        //                 <p style="color:#555;">
+        //                     🚀 Your application has been deployed and is accessible at
+        //                     <a href="http://${EC2_IP}" style="color:#28a745;"><b>http://${EC2_IP}</b></a>
+        //                 </p>
 
-                        <hr style="border:none; border-top:1px solid #eee; margin:24px 0;">
-                        <p style="font-size:12px; color:#999; margin:0;">
-                            Jenkins CI/CD Automated Notification &nbsp;|&nbsp;
-                            This is an auto-generated email. Do not reply.
-                        </p>
-                    </div>
-                </body>
-                </html>
-                """,
-                to: "nipamrohit121@gmail.com"
-            )
-        }
+        //                 <hr style="border:none; border-top:1px solid #eee; margin:24px 0;">
+        //                 <p style="font-size:12px; color:#999; margin:0;">
+        //                     Jenkins CI/CD Automated Notification &nbsp;|&nbsp;
+        //                     This is an auto-generated email. Do not reply.
+        //                 </p>
+        //             </div>
+        //         </body>
+        //         </html>
+        //         """,
+        //         to: "nipamrohit121@gmail.com"
+        //     )
+        // }
 
-        failure {
-            emailext(
-                mimeType: 'text/html',
-                from: 'nipammaruti121@gmail.com',
-                subject: "❌ Jenkins CI/CD Failure | ${JOB_NAME} #${BUILD_NUMBER}",
-                body: """
-                <html>
-                <body style="font-family:Arial,sans-serif; background-color:#f4f6f8; padding:20px;">
-                    <div style="max-width:700px; margin:auto; background:#ffffff; padding:30px; border-radius:8px; border-top:5px solid #d9534f;">
+        // failure {
+        //     emailext(
+        //         mimeType: 'text/html',
+        //         from: 'nipammaruti121@gmail.com',
+        //         subject: "❌ Jenkins CI/CD Failure | ${JOB_NAME} #${BUILD_NUMBER}",
+        //         body: """
+        //         <html>
+        //         <body style="font-family:Arial,sans-serif; background-color:#f4f6f8; padding:20px;">
+        //             <div style="max-width:700px; margin:auto; background:#ffffff; padding:30px; border-radius:8px; border-top:5px solid #d9534f;">
 
-                        <h2 style="color:#d9534f; margin-top:0;">❌ Build Failed</h2>
-                        <p style="color:#555;">The Jenkins pipeline has <b>failed</b>. Please review the logs below.</p>
+        //                 <h2 style="color:#d9534f; margin-top:0;">❌ Build Failed</h2>
+        //                 <p style="color:#555;">The Jenkins pipeline has <b>failed</b>. Please review the logs below.</p>
 
-                        <table width="100%" cellpadding="10" cellspacing="0"
-                               style="border-collapse:collapse; border:1px solid #ddd; margin-top:16px;">
-                            <tr style="background:#fff5f5;">
-                                <td width="35%" style="border:1px solid #ddd;"><b>Project</b></td>
-                                <td style="border:1px solid #ddd;">${JOB_NAME}</td>
-                            </tr>
-                            <tr>
-                                <td style="border:1px solid #ddd;"><b>Build Number</b></td>
-                                <td style="border:1px solid #ddd;">#${BUILD_NUMBER}</td>
-                            </tr>
-                            <tr style="background:#fff5f5;">
-                                <td style="border:1px solid #ddd;"><b>Build Status</b></td>
-                                <td style="border:1px solid #ddd; color:#d9534f;"><b>❌ FAILED</b></td>
-                            </tr>
-                            <tr>
-                                <td style="border:1px solid #ddd;"><b>Docker Image</b></td>
-                                <td style="border:1px solid #ddd;">${IMAGE_NAME}:${TAG}</td>
-                            </tr>
-                            <tr style="background:#fff5f5;">
-                                <td style="border:1px solid #ddd;"><b>Node</b></td>
-                                <td style="border:1px solid #ddd;">${NODE_NAME}</td>
-                            </tr>
-                            <tr>
-                                <td style="border:1px solid #ddd;"><b>Workspace</b></td>
-                                <td style="border:1px solid #ddd;">${WORKSPACE}</td>
-                            </tr>
-                            <tr style="background:#fff5f5;">
-                                <td style="border:1px solid #ddd;"><b>Build URL</b></td>
-                                <td style="border:1px solid #ddd;">
-                                    <a href="${BUILD_URL}" style="color:#007bff;">${BUILD_URL}</a>
-                                </td>
-                            </tr>
-                            <tr>
-                                <td style="border:1px solid #ddd;"><b>Console Logs</b></td>
-                                <td style="border:1px solid #ddd;">
-                                    <a href="${BUILD_URL}console" style="color:#007bff;">${BUILD_URL}console</a>
-                                </td>
-                            </tr>
-                        </table>
+        //                 <table width="100%" cellpadding="10" cellspacing="0"
+        //                        style="border-collapse:collapse; border:1px solid #ddd; margin-top:16px;">
+        //                     <tr style="background:#fff5f5;">
+        //                         <td width="35%" style="border:1px solid #ddd;"><b>Project</b></td>
+        //                         <td style="border:1px solid #ddd;">${JOB_NAME}</td>
+        //                     </tr>
+        //                     <tr>
+        //                         <td style="border:1px solid #ddd;"><b>Build Number</b></td>
+        //                         <td style="border:1px solid #ddd;">#${BUILD_NUMBER}</td>
+        //                     </tr>
+        //                     <tr style="background:#fff5f5;">
+        //                         <td style="border:1px solid #ddd;"><b>Build Status</b></td>
+        //                         <td style="border:1px solid #ddd; color:#d9534f;"><b>❌ FAILED</b></td>
+        //                     </tr>
+        //                     <tr>
+        //                         <td style="border:1px solid #ddd;"><b>Docker Image</b></td>
+        //                         <td style="border:1px solid #ddd;">${IMAGE_NAME}:${TAG}</td>
+        //                     </tr>
+        //                     <tr style="background:#fff5f5;">
+        //                         <td style="border:1px solid #ddd;"><b>Node</b></td>
+        //                         <td style="border:1px solid #ddd;">${NODE_NAME}</td>
+        //                     </tr>
+        //                     <tr>
+        //                         <td style="border:1px solid #ddd;"><b>Workspace</b></td>
+        //                         <td style="border:1px solid #ddd;">${WORKSPACE}</td>
+        //                     </tr>
+        //                     <tr style="background:#fff5f5;">
+        //                         <td style="border:1px solid #ddd;"><b>Build URL</b></td>
+        //                         <td style="border:1px solid #ddd;">
+        //                             <a href="${BUILD_URL}" style="color:#007bff;">${BUILD_URL}</a>
+        //                         </td>
+        //                     </tr>
+        //                     <tr>
+        //                         <td style="border:1px solid #ddd;"><b>Console Logs</b></td>
+        //                         <td style="border:1px solid #ddd;">
+        //                             <a href="${BUILD_URL}console" style="color:#007bff;">${BUILD_URL}console</a>
+        //                         </td>
+        //                     </tr>
+        //                 </table>
 
-                        <br>
-                        <p style="color:#555;">
-                            👉 Please review the console logs to identify the root cause of the failure.
-                        </p>
+        //                 <br>
+        //                 <p style="color:#555;">
+        //                     👉 Please review the console logs to identify the root cause of the failure.
+        //                 </p>
 
-                        <hr style="border:none; border-top:1px solid #eee; margin:24px 0;">
-                        <p style="font-size:12px; color:#999; margin:0;">
-                            Jenkins CI/CD Automated Notification &nbsp;|&nbsp;
-                            This is an auto-generated email. Do not reply.
-                        </p>
-                    </div>
-                </body>
-                </html>
-                """,
-                to: "nipamrohit121@gmail.com"
-            )
-        }
+        //                 <hr style="border:none; border-top:1px solid #eee; margin:24px 0;">
+        //                 <p style="font-size:12px; color:#999; margin:0;">
+        //                     Jenkins CI/CD Automated Notification &nbsp;|&nbsp;
+        //                     This is an auto-generated email. Do not reply.
+        //                 </p>
+        //             </div>
+        //         </body>
+        //         </html>
+        //         """,
+        //         to: "nipamrohit121@gmail.com"
+        //     )
+        // }
+    
+         success {
+    emailext(
+        mimeType: 'text/html',
+        from: 'nipammaruti121@gmail.com',
+        replyTo: 'nipammaruti121@gmail.com',
+        subject: "✅ Jenkins CI/CD Success | ${JOB_NAME} #${BUILD_NUMBER}",
+        body: """...""",
+        to: "nipamrohit121@gmail.com"
+    )
+}
+
+failure {
+    emailext(
+        mimeType: 'text/html',
+        from: 'nipammaruti121@gmail.com',
+        replyTo: 'nipammaruti121@gmail.com',
+        subject: "❌ Jenkins CI/CD Failure | ${JOB_NAME} #${BUILD_NUMBER}",
+        body: """...""",
+        to: "nipamrohit121@gmail.com"
+    )
+}
     }
 }
