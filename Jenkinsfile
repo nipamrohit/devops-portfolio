@@ -109,11 +109,11 @@ pipeline {
             }
         }
 
-        stage('Approve Deployment') {
-            steps {
-                input message: "Deploy ${TAG} to EC2 (${EC2_IP})?"
-            }
-        }
+        // stage('Approve Deployment') {
+        //     steps {
+        //         input message: "Deploy ${TAG} to EC2 (${EC2_IP})?"
+        //     }
+        // }
 
         stage('Deploy to EC2') {
             steps {
