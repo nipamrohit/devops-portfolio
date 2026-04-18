@@ -147,6 +147,14 @@ pipeline {
                         <h2 style="color:#28a745; margin-top:0;">✅ Deployment Successful</h2>
                         <p style="color:#555;">The Jenkins pipeline completed successfully. Your app is live.</p>
 
+                        <div style="background:#f0fff4; border:1px solid #28a745; border-radius:6px; padding:16px; margin-bottom:20px; text-align:center;">
+                            <p style="margin:0; font-size:16px; color:#28a745;"><b>🚀 App Deployed Successfully!</b></p>
+                            <p style="margin:8px 0 0; font-size:15px; color:#333;">
+                                Access your application at:
+                                <a href="http://${EC2_IP}" style="color:#007bff; font-size:17px;"><b>http://${EC2_IP}</b></a>
+                            </p>
+                        </div>
+
                         <table width="100%" cellpadding="10" cellspacing="0"
                                style="border-collapse:collapse; border:1px solid #ddd; margin-top:16px;">
                             <tr style="background:#f0fff4;">
