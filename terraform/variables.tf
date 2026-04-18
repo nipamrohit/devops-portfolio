@@ -3,7 +3,7 @@ variable "instance_type" {
 }
 
 variable "ami_id" {
-  default = "ami-02c57ce16e9a8e906"  # Ubuntu 22.04 (ap-south-1)
+  default = "ami-0f5ee92e2d63afc18"  # Ubuntu 22.04 (ap-south-1)
 }
 
 variable "key_name" {
