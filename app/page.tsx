@@ -11,7 +11,7 @@ import { Footer } from "@/components/footer";
 export default function Home() {
   return (
     <main className="relative min-h-screen overflow-x-hidden">
-      {/* <Navbar />
+      <Navbar />
       <Hero />
       <About />
       <Workflow />
@@ -19,7 +19,7 @@ export default function Home() {
       <Skills />
       <Tools />
       <Contact />
-      <Footer /> */}
+      <Footer />
     </main>
   );
 }
